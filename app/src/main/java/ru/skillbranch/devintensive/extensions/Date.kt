@@ -2,87 +2,76 @@ package ru.skillbranch.devintensive.extensions
 
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlin.String
 import kotlin.math.abs
 
-fun Date.format(pattern: kotlin.String = "HH:mm:ss dd.MM.yy") : kotlin.String {
-    val formatter = SimpleDateFormat(pattern, Locale("ru"))
-    return formatter.format(this)
+const val SECOND = 1000L
+const val MINUTE = 60 * SECOND
+const val HOUR = 60 * MINUTE
+const val DAY = 24 * HOUR
+
+fun Date.format(pattern:String="HH:mm:ss dd.MM.yy"):String{
+    val dateformat = SimpleDateFormat(pattern, Locale("ru"))
+    return dateformat.format(this)
 }
 
-fun Date.add(value: Int, units: TimeUnits) : Date {
-    /**this.time += when(units) {
-     *  TimeUnits.SECOND -> 1000
-     *  TimeUnits.MINUTE -> 1000 * 60
-     *  TimeUnits.HOUR -> 1000 * 60 * 60
-     *  TimeUnits.DAY -> 1000 * 60 * 60 * 24}
-     */
-    this.time += units.time * value
+fun Date.add(value:Int, units: TimeUnits = TimeUnits.SECOND) : Date{
+    var time  = this.time
+
+    time +=when(units){
+        TimeUnits.SECOND -> value * SECOND
+        TimeUnits.MINUTE -> value * MINUTE
+        TimeUnits.HOUR -> value * HOUR
+        TimeUnits.DAY ->  value * DAY
+    }
+    this.time = time
     return this
 }
 
-fun Date.humanizeDiff(date: Date = Date()) : String {
-    val diff = abs(date.time - this.time)
-    val isFuture = date.time < this.time
+fun Date.humanizeDiff(date: Date = Date()): String {
 
-    return when (diff) {
-        in 0 .. TimeUnits.SECOND.time * 1 -> "только что"
-        in TimeUnits.SECOND.time .. TimeUnits.SECOND.time * 45 -> if(isFuture) "через несколько секунд" else "несколько секунд назад"
-        in TimeUnits.SECOND.time * 45 .. TimeUnits.SECOND.time * 75 -> if(isFuture) "через минуту" else "минуту назад"
-        in TimeUnits.SECOND.time * 75 .. TimeUnits.MINUTE.time * 45 -> {
-            return if (isFuture)
-                "через ${TimeUnits.MINUTE.plural((diff / TimeUnits.MINUTE.time).toInt())}"
-            else
-                "${TimeUnits.MINUTE.plural((diff / TimeUnits.MINUTE.time).toInt())} назад"
-        }
-        in TimeUnits.MINUTE.time * 45 .. TimeUnits.MINUTE.time * 75 -> if(isFuture) "через час" else "час назад"
-        in TimeUnits.MINUTE.time * 75 .. TimeUnits.HOUR.time * 22 -> {
-            return if (isFuture)
-                "через ${TimeUnits.HOUR.plural((diff / TimeUnits.HOUR.time).toInt())}"
-            else
-                "${TimeUnits.HOUR.plural((diff / TimeUnits.HOUR.time).toInt())} назад"
-        }
-        in TimeUnits.HOUR.time * 22 .. TimeUnits.HOUR.time * 26 -> if(isFuture) "через день" else "день назад"
-        in TimeUnits.HOUR.time * 26 .. TimeUnits.DAY.time * 360 -> {
-            return if (isFuture)
-                "через ${TimeUnits.DAY.plural((diff / TimeUnits.DAY.time).toInt())}"
-            else
-                "${TimeUnits.DAY.plural((diff / TimeUnits.DAY.time).toInt())} назад"
-        }
-        else -> if(isFuture) "более чем через год" else "более года назад"
+    val diff = abs(date.time - this.time)
+    val seconds=(diff/1000).toInt()
+    val minutes = (diff/60000).toInt()
+    val hours = (diff/3600000).toInt()
+    val days = (diff/86000400).toInt()
+    val bolee = date.time > this.time
+//   println("diff: $diff ,seconds: $seconds ,minutes: $minutes ,hour: $hours ,days: $days")
+    return if(bolee) when {
+        days > 360 -> "более года назад"
+        hours > 26 -> "${TimeUnits.DAY.plural(days)} назад"
+        hours in 23..26 -> "день назад"
+        hours<=22&& minutes>75 ->"${TimeUnits.HOUR.plural(hours)} назад"
+        minutes in 46..75 ->"час назад"
+        minutes<=45&& seconds>75 ->"${TimeUnits.MINUTE.plural(minutes)} назад"
+        seconds in 46..75 ->"минуту назад"
+        seconds in 2..45 ->"несколько секунд назад"
+        else ->"только что"
+    }else when{
+        days >360 -> "более чем через год"
+        hours > 26 -> "через ${TimeUnits.DAY.plural(days)}"
+        hours in 23..26 -> "через день"
+        hours<=22&& minutes>75 ->"через ${TimeUnits.HOUR.plural(hours)}"
+        minutes in 46..75 ->"через час"
+        minutes<=45&& seconds>75 ->"через ${TimeUnits.MINUTE.plural(minutes)}"
+        seconds in 46..75 ->"через минуту"
+        seconds in 2..45 ->"через несколько секунд"
+        else ->"только что"
     }
 }
 
-enum class TimeUnits(val time: Long) {
-    SECOND(1000),
-    MINUTE(SECOND.time * 60),
-    HOUR(MINUTE.time * 60),
-    DAY(HOUR.time * 24);
+enum class TimeUnits(val first: String, val few: String, val many: String) {
+    SECOND("секунду", "секунды", "секунд"),
+    MINUTE("минуту", "минуты", "минут"),
+    HOUR("час", "часа", "часов"),
+    DAY("день", "дня", "дней");
 
-    fun plural(value: Int) : String {
-        val lastDigit = value % 10
-        val isFirstDigitOne = (value / 10 % 10) == 1
-        return when(this) {
-            SECOND -> when(lastDigit) {
-                1 -> if(isFirstDigitOne) "$value секунд" else "$value секунду"
-                in 2 .. 4 -> if(isFirstDigitOne) "$value секунд" else "$value секунды"
-                else -> "$value секунд"
-            }
-            MINUTE -> when(lastDigit) {
-                1 -> if(isFirstDigitOne) "$value минут" else "$value минуту"
-                in 2 .. 4 -> if(isFirstDigitOne) "$value минут" else "$value минуты"
-                else -> "$value минут"
-            }
-            HOUR -> when (lastDigit) {
-                1 -> if(isFirstDigitOne) "$value часов" else "$value час"
-                in 2 .. 4 -> if(isFirstDigitOne) "$value часов" else "$value часа"
-                else -> "$value часов"
-            }
-            else -> when (lastDigit) {
-                1 -> if(isFirstDigitOne) "$value дней" else "$value день"
-                in 2 .. 4 -> if(isFirstDigitOne) "$value дней" else "$value дня"
-                else -> "$value дней"
-            }
+    fun plural(value: Int): String {
+        val svalue = abs(value)
+        return when {
+            svalue % 100 in 5..20 -> "$svalue $many"
+            svalue % 10 == 1 -> "$svalue $first"
+            svalue % 10 in 2..4->"$svalue $few"
+            else -> "$svalue $many"
         }
     }
 }
